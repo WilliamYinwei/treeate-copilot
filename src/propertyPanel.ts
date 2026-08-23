@@ -48,6 +48,11 @@ export class PropertyPanel implements vscode.Disposable {
     private async receive(message: { type?: string; data?: JsonObject }): Promise<void> {
         if (message.type !== 'save' || !message.data || !this.selected) { return; }
         try {
+            const filePath = this.selected.kind === 'project' ? this.store.current?.tpx.path : this.selected.tpPath;
+            const dirtyDocument = filePath && vscode.workspace.textDocuments.find(document =>
+                document.isDirty && path.normalize(document.uri.fsPath).toLowerCase() === path.normalize(filePath).toLowerCase()
+            );
+            if (dirtyDocument) { throw new Error('左侧 JSON 有未保存的修改，请先保存 JSON 后再保存属性配置。'); }
             await this.store.savePropertyData(this.selected, message.data);
             void this.panel?.webview.postMessage({ type: 'saved' });
             void vscode.window.setStatusBarMessage('TreeATE 配置已保存', 2000);

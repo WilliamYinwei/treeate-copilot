@@ -3,7 +3,8 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import {
     asArray, asObject, assertParameterNames, JsonObject, ParameterTableData,
-    ProjectFile, ProjectSnapshot, readParameters, text, TreeAteNode, writeParameters
+    ProjectFile, ProjectSnapshot, readParameterDescriptions, readParameters, text, TreeAteNode,
+    writeParameterDescriptions, writeParameters
 } from './model';
 
 export class ProjectStore implements vscode.Disposable {
@@ -210,7 +211,9 @@ export class ProjectStore implements vscode.Disposable {
             return {
                 kind: 'tp', title: path.basename(tp.path), path: tp.path,
                 fields: { Name: text(tp.data.Name), Desc: text(tp.data.Desc), Ver: text(tp.data.Ver) },
-                bindings: asArray(publicData.Models), globals: readParameters(tp.data.Parameter), publicParameters: readParameters(publicData.Parameter)
+                bindings: asArray(publicData.Models), globals: readParameters(tp.data.Parameter),
+                publicParameters: readParameters(publicData.Parameter),
+                publicParameterDescriptions: readParameterDescriptions(publicData.Parameter)
             };
         }
         const target = this.resolveObject(node)!;
@@ -218,7 +221,9 @@ export class ProjectStore implements vscode.Disposable {
             return {
                 kind: 'suite', title: node.name, path: tp.path,
                 fields: { Name: text(target.Name), Desc: text(target.Desc) },
-                bindings: asArray(publicData.Models), parameters: readParameters(target.Parameter), publicParameters: readParameters(publicData.Parameter)
+                bindings: asArray(publicData.Models), parameters: readParameters(target.Parameter),
+                publicParameters: readParameters(publicData.Parameter),
+                publicParameterDescriptions: readParameterDescriptions(publicData.Parameter)
             };
         }
         return {
@@ -264,6 +269,10 @@ export class ProjectStore implements vscode.Disposable {
             if (value.bindings) { publicData.Models = asArray(value.bindings); }
             const publicParameters = asObject(value.publicParameters) as Record<string, string>;
             assertParameterNames(publicParameters); writeParameters(publicData, publicParameters);
+            if (value.publicParameterDescriptions !== undefined) {
+                const descriptions = asObject(value.publicParameterDescriptions) as Record<string, string>;
+                writeParameterDescriptions(publicData, descriptions);
+            }
         }
         await this.save(tp);
     }

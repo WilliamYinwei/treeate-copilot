@@ -36,6 +36,23 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         }
     }, undefined, context.subscriptions);
 
+    let activeFileRequest = 0;
+    const showPropertiesForEditor = async (editor?: vscode.TextEditor): Promise<void> => {
+        const request = ++activeFileRequest;
+        const uri = editor?.document.uri;
+        if (!uri || uri.scheme !== 'file' || !/\.(?:tp|tpx)$/i.test(uri.fsPath)) { return; }
+        try {
+            const rootDir = path.dirname(uri.fsPath);
+            if (!store.current || path.normalize(store.current.rootDir).toLowerCase() !== path.normalize(rootDir).toLowerCase()) {
+                await store.open(rootDir);
+            }
+            if (request === activeFileRequest) { propertyPanel.showFile(uri); }
+        } catch (error) {
+            if (request === activeFileRequest) { showError('自动打开属性面板失败', error); }
+        }
+    };
+    context.subscriptions.push(vscode.window.onDidChangeActiveTextEditor(editor => void showPropertiesForEditor(editor)));
+
     const nodeArg = (candidate?: TreeAteNode): TreeAteNode | undefined => candidate?.kind ? candidate : selection;
     const register = (name: string, handler: (...args: any[]) => unknown) => context.subscriptions.push(vscode.commands.registerCommand(name, handler));
 
@@ -128,6 +145,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     register('treeate.runProject', async () => { try { await runner.run(); } catch (error) { showError('运行失败', error); } });
 
     await tryOpenWorkspaceProject(store);
+    void showPropertiesForEditor(vscode.window.activeTextEditor);
 }
 
 async function tryOpenWorkspaceProject(store: ProjectStore): Promise<void> {

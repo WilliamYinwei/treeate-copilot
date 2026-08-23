@@ -4,7 +4,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { suite, test } from 'mocha';
 import * as vscode from 'vscode';
-import { readParameters, writeParameters } from '../model';
+import { readParameterDescriptions, readParameters, writeParameterDescriptions, writeParameters } from '../model';
 import { ProjectStore } from '../projectStore';
 
 suite('TreeATE Copilot', () => {
@@ -20,6 +20,13 @@ suite('TreeATE Copilot', () => {
             { Name: 'timeout', Value: '60', Desc: 'seconds', Vendor: 1 },
             { Name: 'retry', Value: '2', Desc: '' }
         ]);
+    });
+
+    test('reads and updates public parameter descriptions without dropping metadata', () => {
+        const owner: Record<string, unknown> = { Parameter: [{ Name: 'timeout', Value: '30', Desc: 'seconds', Vendor: 1 }] };
+        assert.deepStrictEqual(readParameterDescriptions(owner.Parameter), { timeout: 'seconds' });
+        writeParameterDescriptions(owner, { timeout: '超时时间' });
+        assert.deepStrictEqual(owner.Parameter, [{ Name: 'timeout', Value: '30', Desc: '超时时间', Vendor: 1 }]);
     });
 
     test('registers the public command surface', async () => {

@@ -77,6 +77,24 @@ export function readParameters(value: unknown): Record<string, string> {
     return result;
 }
 
+/** Reads the optional Desc/desc metadata without changing the parameter value representation. */
+export function readParameterDescriptions(value: unknown): Record<string, string> {
+    const result: Record<string, string> = {};
+    if (Array.isArray(value)) {
+        for (const entry of value) {
+            const obj = asObject(entry);
+            const name = text(obj.Name || obj.name);
+            if (name) { result[name] = text(obj.Desc ?? obj.desc); }
+        }
+        return result;
+    }
+    for (const [name, raw] of Object.entries(asObject(value))) {
+        const obj = asObject(raw);
+        result[name] = text(obj.Desc ?? obj.desc);
+    }
+    return result;
+}
+
 /** Updates in place without converting the representation or deleting vendor-specific fields. */
 export function writeParameters(owner: JsonObject, next: Record<string, string>, key = 'Parameter'): void {
     const current = owner[key];
@@ -113,6 +131,34 @@ export function writeParameters(owner: JsonObject, next: Record<string, string>,
         }
     }
     owner[key] = replacement;
+}
+
+/** Updates Desc/desc metadata and preserves array/object form and vendor-specific fields where possible. */
+export function writeParameterDescriptions(owner: JsonObject, next: Record<string, string>, key = 'Parameter'): void {
+    const current = owner[key];
+    if (Array.isArray(current)) {
+        for (const entry of current) {
+            const obj = asObject(entry);
+            const name = text(obj.Name || obj.name);
+            if (!name || !(name in next)) { continue; }
+            if ('desc' in obj && !('Desc' in obj)) { obj.desc = next[name]; }
+            else { obj.Desc = next[name]; }
+        }
+        return;
+    }
+
+    const parameters = asObject(current);
+    for (const [name, description] of Object.entries(next)) {
+        if (!(name in parameters)) { continue; }
+        const raw = parameters[name];
+        if (raw !== null && typeof raw === 'object' && !Array.isArray(raw)) {
+            const obj = raw as JsonObject;
+            if ('desc' in obj && !('Desc' in obj)) { obj.desc = description; }
+            else { obj.Desc = description; }
+        } else if (description) {
+            parameters[name] = { Value: text(raw), Desc: description };
+        }
+    }
 }
 
 export function assertParameterNames(parameters: Record<string, string>): void {

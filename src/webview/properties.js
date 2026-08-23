@@ -29,17 +29,19 @@
         renderFields(state.fields || {});
         if (state.kind === 'tpx') {
             renderRecords('GUI 插件', state.plugins, ['Com', 'Name']);
-            renderRecords('并行任务配置', state.instances, ['File', 'Name', 'Parameter']);
+            renderRecords('并行任务配置', state.instances, ['Name', 'File'], ['Parameter']);
         }
         if (state.kind === 'tp') {
             renderParameters('工程全局参数', state.globals, value => state.globals = value);
-            renderRecords('组件绑定', state.bindings, ['Com', 'Name']);
-            renderParameters('公共参数', state.publicParameters, value => state.publicParameters = value);
+            renderRecords('组件绑定', state.bindings, ['Com'], ['Name']);
+            renderParameters('公共参数', state.publicParameters, value => state.publicParameters = value,
+                state.publicParameterDescriptions, value => state.publicParameterDescriptions = value);
         }
         if (state.kind === 'suite') {
-            renderRecords('组件绑定', state.bindings, ['Com', 'Name']);
+            renderRecords('组件绑定', state.bindings, ['Com'], ['Name']);
             renderParameters('测试套参数', state.parameters, value => state.parameters = value);
-            renderParameters('公共参数', state.publicParameters, value => state.publicParameters = value);
+            renderParameters('公共参数', state.publicParameters, value => state.publicParameters = value,
+                state.publicParameterDescriptions, value => state.publicParameterDescriptions = value);
         }
         if (state.kind === 'case') {renderParameters('测试项自定义参数', state.parameters, value => state.parameters = value);}
         status.textContent = ''; status.className = '';
@@ -63,41 +65,58 @@
         app.append(section);
     }
 
-    function renderParameters(heading, parameters, assign) {
+    function renderParameters(heading, parameters, assign, descriptions, assignDescriptions) {
         parameters = parameters || {}; assign(parameters);
+        const showDescriptions = descriptions !== undefined;
+        descriptions = descriptions || {};
+        if (assignDescriptions) {assignDescriptions(descriptions);}
         const section = sectionNode(heading);
+        if (showDescriptions) {
+            const hint = document.createElement('p'); hint.className = 'hint'; hint.textContent = '参数名 / 参数值 / 描述'; section.append(hint);
+        }
         const list = document.createElement('div'); section.append(list);
         const draw = () => {
             list.replaceChildren();
             Object.entries(parameters).forEach(([name, value]) => {
                 const row = document.createElement('div'); row.className = 'field';
-                const nameInput = document.createElement('input'); nameInput.value = name; nameInput.dataset.paramName = '1';
+                const nameInput = document.createElement('input'); nameInput.value = name; nameInput.placeholder = '参数名'; nameInput.dataset.paramName = '1';
                 const valueWrap = document.createElement('div'); valueWrap.className = 'toolbar';
-                const valueInput = document.createElement('input'); valueInput.value = String(value ?? '');
+                const valueInput = document.createElement('input'); valueInput.value = String(value ?? ''); valueInput.placeholder = '参数值';
+                const descriptionInput = document.createElement('input'); descriptionInput.value = String(descriptions[name] ?? ''); descriptionInput.placeholder = '描述';
                 const remove = document.createElement('button'); remove.className = 'icon'; remove.textContent = '×'; remove.title = '删除参数';
                 nameInput.oninput = () => validateName(nameInput);
                 nameInput.onchange = () => {
                     const next = nameInput.value.trim(); if (!validateName(nameInput) || next === name) {return;}
-                    delete parameters[name]; parameters[next] = valueInput.value; name = next;
+                    delete parameters[name]; parameters[next] = valueInput.value;
+                    if (showDescriptions) { delete descriptions[name]; descriptions[next] = descriptionInput.value; }
+                    name = next;
                 };
                 valueInput.oninput = () => parameters[name] = valueInput.value;
-                remove.onclick = () => { delete parameters[name]; draw(); };
-                valueWrap.append(valueInput, remove); row.append(nameInput, valueWrap); list.append(row);
+                descriptionInput.oninput = () => descriptions[name] = descriptionInput.value;
+                remove.onclick = () => { delete parameters[name]; delete descriptions[name]; draw(); };
+                valueWrap.append(valueInput);
+                if (showDescriptions) {valueWrap.append(descriptionInput);}
+                valueWrap.append(remove); row.append(nameInput, valueWrap); list.append(row);
             });
         };
         draw();
         const add = document.createElement('button'); add.textContent = '新增参数';
-        add.onclick = () => { let index = 1; while (`param_${index}` in parameters) {index++;} parameters[`param_${index}`] = ''; draw(); };
+        add.onclick = () => {
+            let index = 1; while (`param_${index}` in parameters) {index++;}
+            const name = `param_${index}`; parameters[name] = '';
+            if (showDescriptions) {descriptions[name] = '';}
+            draw();
+        };
         section.append(add); app.append(section);
     }
 
-    function renderRecords(heading, records, preferred) {
+    function renderRecords(heading, records, preferred, hidden = []) {
         records = records || [];
         const section = sectionNode(heading);
         const wrap = document.createElement('div'); wrap.className = 'table-wrap'; section.append(wrap);
         const draw = () => {
             wrap.replaceChildren();
-            const columns = [...new Set([...preferred, ...records.flatMap(record => Object.keys(record))])];
+            const columns = [...new Set([...preferred, ...records.flatMap(record => Object.keys(record))])].filter(column => !hidden.includes(column));
             const table = document.createElement('table'); const head = document.createElement('thead'); const hr = document.createElement('tr');
             [...columns, ''].forEach(column => { const th = document.createElement('th'); th.textContent = column; hr.append(th); }); head.append(hr); table.append(head);
             const body = document.createElement('tbody');

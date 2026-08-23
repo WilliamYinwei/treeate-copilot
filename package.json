@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "publisher": "treeate",
   "license": "MIT",
-  "engines": { "vscode": "^1.85.0" },
+  "engines": { "vscode": "^1.115.0" },
   "categories": ["Testing", "Other"],
   "activationEvents": ["onStartupFinished", "workspaceContains:**/*.tpx", "workspaceContains:**/*.tp"],
   "main": "./out/extension.js",
@@ -48,7 +48,6 @@
         { "command": "treeate.insertSibling", "when": "view == treeate.projectTree && viewItem != treeate.project", "group": "1_edit@2" },
         { "command": "treeate.renameNode", "when": "view == treeate.projectTree", "group": "1_edit@3" },
         { "command": "treeate.deleteNode", "when": "view == treeate.projectTree && viewItem != treeate.project", "group": "1_edit@4" },
-        { "command": "treeate.openProperties", "when": "view == treeate.projectTree", "group": "2_open@1" },
         { "command": "treeate.openScript", "when": "view == treeate.projectTree", "group": "2_open@2" },
         { "command": "treeate.openSetup", "when": "view == treeate.projectTree && viewItem != treeate.case", "group": "3_script@1" },
         { "command": "treeate.openTeardown", "when": "view == treeate.projectTree && viewItem != treeate.case", "group": "3_script@2" },
@@ -57,7 +56,6 @@
       ],
       "explorer/context": [
         { "command": "treeate.newProject", "when": "explorerResourceIsFolder", "group": "treeate@1" },
-        { "command": "treeate.openProperties", "when": "resourceExtname == .tp || resourceExtname == .tpx", "group": "treeate@2" },
         { "command": "treeate.importResource", "when": "explorerResourceIsFolder", "group": "treeate@3" }
       ]
     },
@@ -66,6 +64,12 @@
       { "command": "treeate.renameNode", "key": "f2", "when": "view == treeate.projectTree && treeView.treeate.projectTree.focus" },
       { "command": "treeate.deleteNode", "key": "delete", "when": "view == treeate.projectTree && treeView.treeate.projectTree.focus" }
     ],
+    "configurationDefaults": {
+      "files.associations": {
+        "*.tp": "json",
+        "*.tpx": "json"
+      }
+    },
     "configuration": {
       "title": "TreeATE Copilot",
       "properties": {
