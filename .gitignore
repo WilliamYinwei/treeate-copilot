@@ -1,0 +1,46 @@
+# ===================== 编译 & 打包输出(必忽略) =====================
+out/
+dist/
+build/
+.vscode-test/
+*.vsix
+
+# ===================== NPM依赖 =====================
+node_modules/
+
+# Lock文件说明：
+# package-lock.json 默认保留提交，可以保证依赖版本一致
+# 如果确实不想提交，解除下面注释
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+
+# ===================== 日志文件 =====================
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ===================== 测试覆盖率 =====================
+coverage/
+
+# ===================== 本地环境变量、密钥 =====================
+.env
+.env.local
+.env.*.local
+
+# ===================== VSCode 工作区配置 =====================
+# 个人调试配置、编辑器配置不提交
+.vscode/launch.json
+.vscode/settings.json
+.vscode/tasks.json
+# 允许提交推荐插件列表，团队协作友好
+!.vscode/extensions.json
+
+# ===================== OS系统垃圾文件 =====================
+.DS_Store
+Thumbs.db
+
+# ===================== 临时文件 =====================
+*.tmp
+*.temp

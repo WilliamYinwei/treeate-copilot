@@ -1,0 +1,111 @@
+{
+  "name": "treeate-copilot",
+  "displayName": "TreeATE Copilot",
+  "description": "TreeATE V2.4 compatible project explorer, parameter editor and runner",
+  "version": "1.0.0",
+  "publisher": "treeate",
+  "license": "MIT",
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Testing", "Other"],
+  "activationEvents": ["onStartupFinished", "workspaceContains:**/*.tpx", "workspaceContains:**/*.tp"],
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [{ "id": "treeate", "title": "TreeATE", "icon": "media/treeate.svg" }]
+    },
+    "views": {
+      "treeate": [
+        { "id": "treeate.projectTree", "name": "测试工程" },
+        { "id": "treeate.parameterTable", "name": "参数表", "type": "webview" }
+      ]
+    },
+    "commands": [
+      { "command": "treeate.newProject", "title": "TreeATE: 新建工程", "icon": "$(new-folder)" },
+      { "command": "treeate.openProject", "title": "TreeATE: 打开工程", "icon": "$(folder-opened)" },
+      { "command": "treeate.refresh", "title": "TreeATE: 刷新工程", "icon": "$(refresh)" },
+      { "command": "treeate.addChild", "title": "新增子节点", "icon": "$(add)" },
+      { "command": "treeate.insertSibling", "title": "插入同级节点" },
+      { "command": "treeate.deleteNode", "title": "删除", "icon": "$(trash)" },
+      { "command": "treeate.renameNode", "title": "重命名", "icon": "$(edit)" },
+      { "command": "treeate.importResource", "title": "导入资源", "icon": "$(cloud-download)" },
+      { "command": "treeate.openProperties", "title": "打开属性面板", "icon": "$(settings-gear)" },
+      { "command": "treeate.openScript", "title": "打开关联脚本", "icon": "$(code)" },
+      { "command": "treeate.openSetup", "title": "跳转 setup 函数" },
+      { "command": "treeate.openTeardown", "title": "跳转 teardown 函数" },
+      { "command": "treeate.generateFunctions", "title": "生成生命周期函数模板" },
+      { "command": "treeate.runProject", "title": "TreeATE: 运行当前工程", "icon": "$(debug-start)" }
+    ],
+    "menus": {
+      "view/title": [
+        { "command": "treeate.newProject", "when": "view == treeate.projectTree", "group": "navigation@1" },
+        { "command": "treeate.openProject", "when": "view == treeate.projectTree", "group": "navigation@2" },
+        { "command": "treeate.runProject", "when": "view == treeate.projectTree && treeate.projectOpen", "group": "navigation@3" },
+        { "command": "treeate.refresh", "when": "view == treeate.projectTree", "group": "navigation@4" }
+      ],
+      "view/item/context": [
+        { "command": "treeate.addChild", "when": "view == treeate.projectTree && viewItem == treeate.project", "group": "1_edit@1" },
+        { "command": "treeate.addChild", "when": "view == treeate.projectTree && viewItem == treeate.suite", "group": "1_edit@1" },
+        { "command": "treeate.insertSibling", "when": "view == treeate.projectTree && viewItem != treeate.project", "group": "1_edit@2" },
+        { "command": "treeate.renameNode", "when": "view == treeate.projectTree", "group": "1_edit@3" },
+        { "command": "treeate.deleteNode", "when": "view == treeate.projectTree && viewItem != treeate.project", "group": "1_edit@4" },
+        { "command": "treeate.openProperties", "when": "view == treeate.projectTree", "group": "2_open@1" },
+        { "command": "treeate.openScript", "when": "view == treeate.projectTree", "group": "2_open@2" },
+        { "command": "treeate.openSetup", "when": "view == treeate.projectTree && viewItem != treeate.case", "group": "3_script@1" },
+        { "command": "treeate.openTeardown", "when": "view == treeate.projectTree && viewItem != treeate.case", "group": "3_script@2" },
+        { "command": "treeate.generateFunctions", "when": "view == treeate.projectTree", "group": "3_script@3" },
+        { "command": "treeate.importResource", "when": "view == treeate.projectTree", "group": "4_resource@1" }
+      ],
+      "explorer/context": [
+        { "command": "treeate.newProject", "when": "explorerResourceIsFolder", "group": "treeate@1" },
+        { "command": "treeate.openProperties", "when": "resourceExtname == .tp || resourceExtname == .tpx", "group": "treeate@2" },
+        { "command": "treeate.importResource", "when": "explorerResourceIsFolder", "group": "treeate@3" }
+      ]
+    },
+    "keybindings": [
+      { "command": "treeate.runProject", "key": "f5", "when": "treeate.projectOpen" },
+      { "command": "treeate.renameNode", "key": "f2", "when": "view == treeate.projectTree && treeView.treeate.projectTree.focus" },
+      { "command": "treeate.deleteNode", "key": "delete", "when": "view == treeate.projectTree && treeView.treeate.projectTree.focus" }
+    ],
+    "configuration": {
+      "title": "TreeATE Copilot",
+      "properties": {
+        "treeate.testEnginePath": {
+          "type": "string",
+          "default": "",
+          "description": "TreeATE TestEngine.exe 的绝对路径；留空时自动查找工程目录和 PATH。"
+        },
+        "treeate.testEngineArguments": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": ["${tpx}"],
+          "description": "传给 TestEngine 的参数，支持 ${tpx}、${projectDir}、${projectName}。"
+        },
+        "treeate.openScriptOnSelect": {
+          "type": "boolean",
+          "default": true,
+          "description": "选择测试套或测试项时自动跳转关联脚本函数。"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc --watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext .ts",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^22.19.21",
+    "@types/vscode": "^1.85.0",
+    "@vscode/test-cli": "^0.0.11",
+    "@vscode/test-electron": "^2.5.2",
+    "eslint": "^9.39.3",
+    "mocha": "^11.7.6",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.56.1"
+  },
+  "dependencies": {}
+}
