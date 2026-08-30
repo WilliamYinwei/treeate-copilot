@@ -8,6 +8,7 @@ import { ProjectStore } from './projectStore';
 import { ProjectTreeProvider } from './projectTree';
 import { PropertyPanel } from './propertyPanel';
 import { ScriptService } from './scriptService';
+import { registerTreeAteApiIntelliSense } from './treeAteApiIntelliSense';
 
 const NAME_PATTERN = /^[A-Za-z][A-Za-z0-9_]*$/;
 
@@ -23,6 +24,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
     context.subscriptions.push(
         store, treeProvider, parameterTable, propertyPanel, runner, tree,
+        registerTreeAteApiIntelliSense(),
         vscode.window.registerWebviewViewProvider(ParameterTableView.viewType, parameterTable, { webviewOptions: { retainContextWhenHidden: true } })
     );
 

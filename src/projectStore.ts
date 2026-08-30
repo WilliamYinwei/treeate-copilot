@@ -303,9 +303,8 @@ export class ProjectStore implements vscode.Disposable {
         const tp = this.fileByPath(node.tpPath!)!;
         const suite = this.resolveSuite(node)!;
         const item = this.resolveObject(node)!;
-        const publicData = asObject(tp.data.Public);
         const groups: Array<['project' | 'suite' | 'case', Record<string, string>]> = [
-            ['project', readParameters(publicData.Parameter)], ['project', readParameters(tp.data.Parameter)],
+            ['project', readParameters(tp.data.Parameter)],
             ['suite', readParameters(suite.Parameter)], ['case', readParameters(item.Parameter)]
         ];
         const values: Record<string, string> = {};

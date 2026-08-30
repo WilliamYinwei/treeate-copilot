@@ -11,6 +11,7 @@
 - 参数名双端校验；仅接受字母、数字和下划线。
 - 测试项 > 测试套 > 工程的参数继承与覆盖。
 - `.py` 脚本生命周期函数定位和缺失模板生成。
+- TreeATE 注入对象 `__ate` 的 API 补全、参数提示和悬停文档，无需在测试脚本中添加 import。
 - dll/py/js 导入 `libs`，png/jpg/jpeg/gif 导入 `images`。
 - `.tp/.tpx` 外部修改监听和自动刷新。
 - F5 调用 TestEngine，输出到 `TreeATE Copilot` 日志通道。
@@ -30,6 +31,8 @@ TestEngine 可在设置中指定：
 - `treeate.testEngineArguments`：参数模板，支持 `${tpx}`、`${projectDir}`、`${projectName}`。
 - `treeate.openScriptOnSelect`：选择树节点时是否打开并定位关联函数。
 
+编辑 Python 测试脚本时，输入 `__ate.` 可获得其 API 的 IntelliSense；输入 `__aterun.` 可获得仅属于该对象的 `IsStopped`。接口签名和说明依据 [TreeATE 平台 API 说明](https://blog.csdn.net/vivasoft/article/details/88676053)；补全功能由本扩展直接提供，不依赖 Python 扩展，也不会改变脚本运行时行为。
+
 ## 源码目录
 
 ```text
@@ -43,6 +46,7 @@ treeate-copilot/
 │  ├─ parameterTableView.ts     # 参数矩阵 WebviewView
 │  ├─ propertyPanel.ts          # 右侧属性 WebviewPanel
 │  ├─ scriptService.ts          # 脚本函数定位和模板生成
+│  ├─ treeAteApiIntelliSense.ts # __ate API 智能感知
 │  ├─ engineRunner.ts           # TestEngine 与 Output 通道
 │  ├─ webview/
 │  │  ├─ parameterTable.js

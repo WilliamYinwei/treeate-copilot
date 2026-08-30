@@ -6,6 +6,7 @@ import { suite, test } from 'mocha';
 import * as vscode from 'vscode';
 import { readParameterDescriptions, readParameters, writeParameterDescriptions, writeParameters } from '../model';
 import { ProjectStore } from '../projectStore';
+import { TREEATE_APIS } from '../treeAteApiIntelliSense';
 
 suite('TreeATE Copilot', () => {
     test('reads both V2.4 parameter representations', () => {
@@ -36,6 +37,35 @@ suite('TreeATE Copilot', () => {
         }
     });
 
+    test('provides IntelliSense for the injected TreeATE API object', async () => {
+        const document = await vscode.workspace.openTextDocument({ language: 'python', content: '__ate.\n__ate.OutputRst(\n__aterun.\n__aterun.IsStopped(' });
+        const completions = await vscode.commands.executeCommand<vscode.CompletionList>(
+            'vscode.executeCompletionItemProvider', document.uri, document.lineAt(0).range.end, '.'
+        );
+        const labels = completions.items.map(item => typeof item.label === 'string' ? item.label : item.label.label);
+        const ateNames = TREEATE_APIS.filter(api => api.objectName === '__ate').map(api => api.name);
+        assert.deepStrictEqual(ateNames.filter(name => !labels.includes(name)), []);
+        assert.ok(!labels.includes('IsStopped'));
+
+        const signatures = await vscode.commands.executeCommand<vscode.SignatureHelp>(
+            'vscode.executeSignatureHelpProvider', document.uri, document.lineAt(1).range.end, '('
+        );
+        assert.ok(signatures.signatures[0].label.startsWith('__ate.OutputRst(strName, strValue, strStand)'));
+        assert.strictEqual(signatures.signatures[0].parameters.length, 3);
+
+        const runCompletions = await vscode.commands.executeCommand<vscode.CompletionList>(
+            'vscode.executeCompletionItemProvider', document.uri, document.lineAt(2).range.end, '.'
+        );
+        const runLabels = runCompletions.items.map(item => typeof item.label === 'string' ? item.label : item.label.label);
+        assert.ok(runLabels.includes('IsStopped'));
+        assert.ok(!runLabels.includes('OutputRst'));
+
+        const runSignatures = await vscode.commands.executeCommand<vscode.SignatureHelp>(
+            'vscode.executeSignatureHelpProvider', document.uri, document.lineAt(3).range.end, '('
+        );
+        assert.ok(runSignatures.signatures[0].label.startsWith('__aterun.IsStopped()'));
+    });
+
     test('loads the three-level tree and writes only the case override', async () => {
         const root = await fs.mkdtemp(path.join(os.tmpdir(), 'treeate-copilot-test-'));
         const store = new ProjectStore();
@@ -43,7 +73,7 @@ suite('TreeATE Copilot', () => {
             await fs.writeFile(path.join(root, 'Demo.tpx'), JSON.stringify({ Name: 'demo', Instance: [{ File: 'Demo.tp', Name: 'A', Parameter: [] }] }));
             await fs.writeFile(path.join(root, 'Demo.tp'), JSON.stringify({
                 Name: 'demo', Ver: '2.4.0', VendorField: { keep: true }, Parameter: { timeout: '10' },
-                Public: { Models: [], Parameter: [] },
+                Public: { Models: [], Parameter: { publicOnly: 'shared' } },
                 TestSuite: [{ Name: 'suite1', Desc: '', Parameter: { timeout: '20' }, TestCase: [{ Name: 'case1', Desc: '', Parameter: { retries: '2' } }] }]
             }));
             await store.open(root);
@@ -51,6 +81,8 @@ suite('TreeATE Copilot', () => {
             const testSuite = store.getChildren(project)[0];
             const testCase = store.getChildren(testSuite)[0];
             const table = store.getParameterTable(project);
+            assert.ok(!table.columns.includes('publicOnly'));
+            assert.strictEqual(table.rows[0].cells.publicOnly, undefined);
             assert.strictEqual(table.rows[0].cells.timeout.value, '20');
             assert.strictEqual(table.rows[0].cells.timeout.source, 'suite');
             await store.setCell(testCase.id, 'timeout', '30');
