@@ -1,14 +1,15 @@
 {
   "name": "treeate-copilot",
   "displayName": "TreeATE Copilot",
-  "description": "TreeATE V2.4 compatible project explorer, parameter editor and runner",
-  "version": "1.0.0",
-  "publisher": "treeate",
+  "description": "TreeATE V3.0 compatible project explorer, parameter editor and runner",
+  "version": "0.0.3",
+  "publisher": "WilliamYinwei",
   "license": "MIT",
   "engines": { "vscode": "^1.115.0" },
   "categories": ["Testing", "Other"],
   "activationEvents": ["onStartupFinished", "workspaceContains:**/*.tpx", "workspaceContains:**/*.tp"],
   "main": "./out/extension.js",
+  "icon": "./treeatelogo.png",
   "contributes": {
     "viewsContainers": {
       "activitybar": [{ "id": "treeate", "title": "TreeATE", "icon": "media/treeate.svg" }]

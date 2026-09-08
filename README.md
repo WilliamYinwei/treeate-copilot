@@ -1,6 +1,6 @@
 # TreeATE Copilot
 
-面向 VS Code 1.115+ / Windows x64 的 TreeATE V2.4 工程扩展。扩展直接读写原版 `.tp`、`.tpx` JSON，不引入私有工程格式，并保留文件中的未知字段以及 `Parameter` 的对象/数组表示。
+面向 VS Code 1.115+ / Windows x64 的 TreeATE V3.0 工程扩展。扩展直接读写原版 `.tp`、`.tpx` JSON，不引入私有工程格式，并保留文件中的未知字段以及 `Parameter` 的对象/数组表示。
 
 ## 功能
 
@@ -15,47 +15,6 @@
 - dll/py/js 导入 `libs`，png/jpg/jpeg/gif 导入 `images`。
 - `.tp/.tpx` 外部修改监听和自动刷新。
 - F5 调用 TestEngine，输出到 `TreeATE Copilot` 日志通道。
-
-## 开发与运行
-
-```powershell
-npm install
-npm run compile
-```
-
-在本仓库中按 F5 启动“Run Extension”调试配置。扩展宿主中打开 TreeATE 活动栏，或从命令面板运行 `TreeATE: 新建工程` / `TreeATE: 打开工程`。
-
-TestEngine 可在设置中指定：
-
-- `treeate.testEnginePath`：`TestEngine.exe` 的绝对路径。留空时先查找工程根目录，再使用 PATH。
-- `treeate.testEngineArguments`：参数模板，支持 `${tpx}`、`${projectDir}`、`${projectName}`。
-- `treeate.openScriptOnSelect`：选择树节点时是否打开并定位关联函数。
-
-编辑 Python 测试脚本时，输入 `__ate.` 可获得其 API 的 IntelliSense；输入 `__aterun.` 可获得仅属于该对象的 `IsStopped`。接口签名和说明依据 [TreeATE 平台 API 说明](https://blog.csdn.net/vivasoft/article/details/88676053)；补全功能由本扩展直接提供，不依赖 Python 扩展，也不会改变脚本运行时行为。
-
-## 源码目录
-
-```text
-treeate-copilot/
-├─ media/treeate.svg
-├─ src/
-│  ├─ extension.ts              # 激活、命令、工程创建与资源导入
-│  ├─ model.ts                  # TreeATE JSON/参数兼容层
-│  ├─ projectStore.ts           # 工程加载、保存、监听和节点操作
-│  ├─ projectTree.ts            # TreeView 与同级拖拽
-│  ├─ parameterTableView.ts     # 参数矩阵 WebviewView
-│  ├─ propertyPanel.ts          # 右侧属性 WebviewPanel
-│  ├─ scriptService.ts          # 脚本函数定位和模板生成
-│  ├─ treeAteApiIntelliSense.ts # __ate API 智能感知
-│  ├─ engineRunner.ts           # TestEngine 与 Output 通道
-│  ├─ webview/
-│  │  ├─ parameterTable.js
-│  │  ├─ properties.js
-│  │  └─ webview.css
-│  └─ test/extension.test.ts
-├─ package.json
-└─ tsconfig.json
-```
 
 ## 命令
 
@@ -76,6 +35,3 @@ treeate-copilot/
 | `treeate.generateFunctions` | 生成生命周期函数模板 |
 | `treeate.runProject` | TreeATE: 运行当前工程（F5） |
 
-## 兼容策略
-
-写回时仅修改用户编辑的已知字段；额外的 TreeATE 字段会原样保留。参数既支持对象形式，也支持 `[{"Name":"...","Value":"..."}]` 形式，并尽量保留原表示。工程目录中的 `libs`、`images` 名称与位置不会改变。
