@@ -4,6 +4,10 @@ All notable changes to the "treeate-copilot" extension will be documented in thi
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [Unreleased]
+
+- Display functions and parameter names from `libs` DLLs that export `CreateDeviceInst` and return a Qt `QObject*`.
+
 ## [1.0.0] - 2026-08-22
 
 - TreeATE V2.4 compatible `.tp` / `.tpx` project management.

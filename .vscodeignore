@@ -10,4 +10,7 @@ vsc-extension-quickstart.md
 **/eslint.config.mjs
 **/*.map
 **/*.ts
+native/build/**
+native/CMakeLists.txt
+native/**/*.cpp
 **/.vscode-test.*

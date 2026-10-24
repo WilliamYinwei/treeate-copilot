@@ -1,6 +1,7 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { DllEditorProvider } from './dllEditor';
 import { EngineRunner } from './engineRunner';
 import { JsonObject, TreeAteNode } from './model';
 import { ParameterTableView } from './parameterTableView';
@@ -25,6 +26,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     context.subscriptions.push(
         store, treeProvider, parameterTable, propertyPanel, runner, tree,
         registerTreeAteApiIntelliSense(),
+        vscode.window.registerCustomEditorProvider(DllEditorProvider.viewType, new DllEditorProvider(context), {
+            supportsMultipleEditorsPerDocument: true
+        }),
         vscode.window.registerWebviewViewProvider(ParameterTableView.viewType, parameterTable, { webviewOptions: { retainContextWhenHidden: true } })
     );
 

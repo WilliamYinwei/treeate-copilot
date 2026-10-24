@@ -4,11 +4,51 @@ import * as os from 'os';
 import * as path from 'path';
 import { suite, test } from 'mocha';
 import * as vscode from 'vscode';
+import { parseInspectorOutput, peExportsName } from '../dllInspector';
 import { readParameterDescriptions, readParameters, writeParameterDescriptions, writeParameters } from '../model';
 import { ProjectStore } from '../projectStore';
 import { TREEATE_APIS } from '../treeAteApiIntelliSense';
 
 suite('TreeATE Copilot', () => {
+    test('parses QObject method and parameter metadata returned by the Qt inspector', () => {
+        const result = parseInspectorOutput('plugin output\nTREEATE_QT_META:{"status":"ok","className":"DemoDevice","methods":[{"name":"readValue","signature":"readValue(QString,int)","returnType":"int","parameters":[{"name":"channel","type":"QString"},{"name":"timeout","type":"int"}]}]}\n');
+        assert.deepStrictEqual(result, {
+            status: 'ok', className: 'DemoDevice', methods: [{
+                name: 'readValue', signature: 'readValue(QString,int)', returnType: 'int',
+                parameters: [{ name: 'channel', type: 'QString' }, { name: 'timeout', type: 'int' }]
+            }]
+        });
+    });
+
+    test('recognizes a DLL without CreateDeviceInst as unsupported', () => {
+        assert.deepStrictEqual(
+            parseInspectorOutput('TREEATE_QT_META:{"status":"unsupported","reason":"missing export"}\n'),
+            { status: 'unsupported', reason: 'missing export' }
+        );
+    });
+
+    test('finds CreateDeviceInst in a PE export table', () => {
+        const image = Buffer.alloc(1024);
+        image.write('MZ', 0, 'ascii');
+        image.writeUInt32LE(0x80, 0x3c);
+        image.write('PE\0\0', 0x80, 'ascii');
+        image.writeUInt16LE(1, 0x86);
+        image.writeUInt16LE(0xf0, 0x94);
+        image.writeUInt16LE(0x20b, 0x98);
+        image.writeUInt32LE(0x1000, 0x108);
+        const section = 0x188;
+        image.writeUInt32LE(0x200, section + 8);
+        image.writeUInt32LE(0x1000, section + 12);
+        image.writeUInt32LE(0x200, section + 16);
+        image.writeUInt32LE(0x200, section + 20);
+        image.writeUInt32LE(1, 0x218);
+        image.writeUInt32LE(0x1040, 0x220);
+        image.writeUInt32LE(0x1050, 0x240);
+        image.write('CreateDeviceInst\0', 0x250, 'ascii');
+        assert.strictEqual(peExportsName(image, 'CreateDeviceInst'), true);
+        assert.strictEqual(peExportsName(image, 'AnotherFunction'), false);
+    });
+
     test('reads both V2.4 parameter representations', () => {
         assert.deepStrictEqual(readParameters({ timeout: '30' }), { timeout: '30' });
         assert.deepStrictEqual(readParameters([{ Name: 'timeout', Value: '30', Desc: 'seconds' }]), { timeout: '30' });

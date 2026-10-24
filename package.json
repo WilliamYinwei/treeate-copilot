@@ -20,6 +20,14 @@
         { "id": "treeate.parameterTable", "name": "参数表", "type": "webview" }
       ]
     },
+    "customEditors": [
+      {
+        "viewType": "treeate.dllFunctions",
+        "displayName": "TreeATE DLL 接口",
+        "selector": [{ "filenamePattern": "**/libs/*.[dD][lL][lL]" }],
+        "priority": "default"
+      }
+    ],
     "commands": [
       { "command": "treeate.newProject", "title": "TreeATE: 新建工程", "icon": "$(new-folder)" },
       { "command": "treeate.openProject", "title": "TreeATE: 打开工程", "icon": "$(folder-opened)" },
@@ -85,6 +93,11 @@
           "default": ["${tpx}"],
           "description": "传给 TestEngine 的参数，支持 ${tpx}、${projectDir}、${projectName}。"
         },
+        "treeate.qtInspectorPath": {
+          "type": "string",
+          "default": "",
+          "description": "treeate-qt-inspector.exe 的路径；留空时使用扩展内置的 native/bin/treeate-qt-inspector.exe。"
+        },
         "treeate.openScriptOnSelect": {
           "type": "boolean",
           "default": true,
@@ -96,6 +109,7 @@
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
+    "build:qt-inspector": "cmake -S native -B native/build && cmake --build native/build --config Release",
     "watch": "tsc --watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src --ext .ts",
