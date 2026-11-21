@@ -1,3 +1,5 @@
+import { t } from './i18n';
+
 export type JsonObject = Record<string, unknown>;
 export type NodeKind = 'project' | 'suite' | 'case' | 'tp';
 
@@ -163,5 +165,5 @@ export function writeParameterDescriptions(owner: JsonObject, next: Record<strin
 
 export function assertParameterNames(parameters: Record<string, string>): void {
     const invalid = Object.keys(parameters).find(name => !PARAMETER_NAME.test(name));
-    if (invalid) { throw new Error(`参数名“${invalid}”不合法，只允许字母、数字和下划线。`); }
+    if (invalid) { throw new Error(t('model.invalidParameterName', invalid)); }
 }

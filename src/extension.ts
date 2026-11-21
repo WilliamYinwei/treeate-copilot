@@ -3,8 +3,10 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { DllEditorProvider } from './dllEditor';
 import { EngineRunner } from './engineRunner';
+import { t } from './i18n';
 import { JsonObject, TreeAteNode } from './model';
 import { ParameterTableView } from './parameterTableView';
+import { decodeCsvBuffer } from './parameterTableCsv';
 import { ProjectStore } from './projectStore';
 import { ProjectTreeProvider } from './projectTree';
 import { PropertyPanel } from './propertyPanel';
@@ -20,17 +22,26 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     const propertyPanel = new PropertyPanel(context, store);
     const scripts = new ScriptService(store);
     const runner = new EngineRunner(store);
+    const dllEditor = new DllEditorProvider(context);
     const tree = vscode.window.createTreeView('treeate.projectTree', { treeDataProvider: treeProvider, dragAndDropController: treeProvider, showCollapseAll: true });
     let selection: TreeAteNode | undefined;
 
     context.subscriptions.push(
         store, treeProvider, parameterTable, propertyPanel, runner, tree,
         registerTreeAteApiIntelliSense(),
-        vscode.window.registerCustomEditorProvider(DllEditorProvider.viewType, new DllEditorProvider(context), {
+        vscode.window.registerCustomEditorProvider(DllEditorProvider.viewType, dllEditor, {
             supportsMultipleEditorsPerDocument: true
         }),
         vscode.window.registerWebviewViewProvider(ParameterTableView.viewType, parameterTable, { webviewOptions: { retainContextWhenHidden: true } })
     );
+
+    context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(event => {
+        if (!event.affectsConfiguration('treeate.language')) { return; }
+        treeProvider.refresh();
+        parameterTable.refreshLanguage();
+        propertyPanel.refreshLanguage();
+        dllEditor.refreshLanguage();
+    }));
 
     tree.onDidChangeSelection(event => {
         selection = event.selection[0];
@@ -38,7 +49,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         parameterTable.select(selection);
         propertyPanel.show(selection);
         if (selection.kind !== 'project' && vscode.workspace.getConfiguration('treeate').get('openScriptOnSelect', true)) {
-            void scripts.open(selection).catch(error => showError('打开脚本失败', error));
+            void scripts.open(selection).catch(error => showError(t('ext.openScriptFailed'), error));
         }
     }, undefined, context.subscriptions);
 
@@ -54,7 +65,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
             }
             if (request === activeFileRequest) { propertyPanel.showFile(uri); }
         } catch (error) {
-            if (request === activeFileRequest) { showError('自动打开属性面板失败', error); }
+            if (request === activeFileRequest) { showError(t('ext.autoOpenPropertiesFailed'), error); }
         }
     };
     context.subscriptions.push(vscode.window.onDidChangeActiveTextEditor(editor => void showPropertiesForEditor(editor)));
@@ -68,60 +79,112 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
             if (projectDir) {
                 await addWorkspaceFolder(projectDir);
                 await store.open(projectDir);
-                void vscode.window.showInformationMessage(`TreeATE 工程已创建：${path.basename(projectDir)}`);
+                void vscode.window.showInformationMessage(t('ext.projectCreated', path.basename(projectDir)));
             }
-        } catch (error) { showError('新建工程失败', error); }
+        } catch (error) { showError(t('ext.newProjectFailed'), error); }
     });
 
     register('treeate.openProject', async () => {
-        const chosen = await vscode.window.showOpenDialog({ canSelectFiles: false, canSelectFolders: true, canSelectMany: false, title: '选择 TreeATE 工程根目录', openLabel: '打开工程' });
+        const chosen = await vscode.window.showOpenDialog({ canSelectFiles: false, canSelectFolders: true, canSelectMany: false, title: t('ext.selectProjectRoot'), openLabel: t('ext.openProjectLabel') });
         if (!chosen?.[0]) { return; }
         try { await addWorkspaceFolder(chosen[0].fsPath); await store.open(chosen[0].fsPath); }
-        catch (error) { showError('打开工程失败', error); }
+        catch (error) { showError(t('ext.openProjectFailed'), error); }
     });
 
     register('treeate.refresh', async () => {
-        try { await store.reload(); } catch (error) { showError('刷新失败', error); }
+        try { await store.reload(); } catch (error) { showError(t('ext.refreshFailed'), error); }
+    });
+
+    register('treeate.expandAll', async () => {
+        const expandChildren = async (node?: TreeAteNode): Promise<void> => {
+            for (const child of await treeProvider.getChildren(node)) {
+                if (!(await treeProvider.getChildren(child)).length) { continue; }
+                await tree.reveal(child, { expand: true, select: false, focus: false });
+                await expandChildren(child);
+            }
+        };
+        await expandChildren();
     });
 
     register('treeate.addChild', async (candidate?: TreeAteNode) => {
         const parent = nodeArg(candidate);
         if (!parent) { return; }
-        const name = await askNodeName(parent.kind === 'project' ? '测试套' : '测试项');
+        const name = await askNodeName(parent.kind === 'project' ? 'suite' : 'case');
         if (!name) { return; }
         try {
             const created = await store.addChild(parent, name);
             await tree.reveal(created, { select: true, focus: true, expand: true });
-        } catch (error) { showError('新增节点失败', error); }
+        } catch (error) { showError(t('ext.addNodeFailed'), error); }
     });
 
     register('treeate.insertSibling', async (candidate?: TreeAteNode) => {
         const node = nodeArg(candidate);
         if (!node) { return; }
-        const name = await askNodeName(node.kind === 'suite' ? '测试套' : '测试项');
+        const name = await askNodeName(node.kind === 'suite' ? 'suite' : 'case');
         if (!name) { return; }
-        try { await store.insertSibling(node, name); } catch (error) { showError('插入节点失败', error); }
+        try { await store.insertSibling(node, name); } catch (error) { showError(t('ext.insertNodeFailed'), error); }
     });
 
     register('treeate.renameNode', async (candidate?: TreeAteNode) => {
         const node = nodeArg(candidate);
         if (!node) { return; }
-        const name = await vscode.window.showInputBox({ title: '重命名', value: node.name, validateInput: validateName });
+        const name = await vscode.window.showInputBox({ title: t('ext.renameTitle'), value: node.name, validateInput: validateName });
         if (!name || name === node.name) { return; }
-        try { await store.rename(node, name); } catch (error) { showError('重命名失败', error); }
+        try { await store.rename(node, name); } catch (error) { showError(t('ext.renameFailed'), error); }
     });
 
     register('treeate.deleteNode', async (candidate?: TreeAteNode) => {
         const node = nodeArg(candidate);
         if (!node || node.kind === 'project') { return; }
-        const confirm = await vscode.window.showWarningMessage(`确定删除“${node.name}”及其下级内容吗？`, { modal: true }, '删除');
-        if (confirm !== '删除') { return; }
-        try { await store.delete(node); } catch (error) { showError('删除失败', error); }
+        const deleteLabel = t('common.delete');
+        const confirm = await vscode.window.showWarningMessage(t('ext.deleteNodeConfirm', node.name), { modal: true }, deleteLabel);
+        if (confirm !== deleteLabel) { return; }
+        try { await store.delete(node); } catch (error) { showError(t('ext.deleteFailed'), error); }
     });
 
     register('treeate.importResource', async (candidate?: TreeAteNode | vscode.Uri) => {
         const uri = candidate instanceof vscode.Uri ? candidate : undefined;
-        try { await importResources(store, uri); } catch (error) { showError('导入资源失败', error); }
+        try { await importResources(store, uri); } catch (error) { showError(t('ext.importResourceFailed'), error); }
+    });
+
+    const projectNode = (candidate?: TreeAteNode): TreeAteNode | undefined => {
+        const node = nodeArg(candidate);
+        if (!node || node.kind !== 'project' || !store.current) {
+            void vscode.window.showWarningMessage(t('ext.selectProjectRootWarning'));
+            return undefined;
+        }
+        return node;
+    };
+
+    register('treeate.importParameterCsv', async (candidate?: TreeAteNode) => {
+        const node = projectNode(candidate);
+        if (!node) { return; }
+        const selected = await vscode.window.showOpenDialog({
+            canSelectFiles: true, canSelectFolders: false, canSelectMany: false,
+            title: t('ext.importCsvTitle'), openLabel: t('ext.importLabel'), filters: { CSV: ['csv'] }
+        });
+        if (!selected?.[0]) { return; }
+        try {
+            const content = decodeCsvBuffer(await fs.readFile(selected[0].fsPath));
+            const result = await store.importParameterCsv(node, content);
+            void vscode.window.showInformationMessage(t('ext.csvImported', result.nodes, result.files));
+        } catch (error) { showError(t('ext.importCsvFailed'), error); }
+    });
+
+    register('treeate.exportParameterCsv', async (candidate?: TreeAteNode) => {
+        const node = projectNode(candidate);
+        if (!node) { return; }
+        try {
+            const content = store.exportParameterCsv(node);
+            const fileName = `${node.name.replace(/[\\/:*?"<>|]/g, '_')}-parameter.csv`;
+            const target = await vscode.window.showSaveDialog({
+                title: t('ext.exportCsvTitle'), saveLabel: t('ext.exportLabel'), filters: { CSV: ['csv'] },
+                defaultUri: vscode.Uri.file(path.join(store.current!.rootDir, fileName))
+            });
+            if (!target) { return; }
+            await fs.writeFile(target.fsPath, content, 'utf8');
+            void vscode.window.showInformationMessage(t('ext.csvExported', target.fsPath));
+        } catch (error) { showError(t('ext.exportCsvFailed'), error); }
     });
 
     register('treeate.openProperties', async (candidate?: TreeAteNode | vscode.Uri) => {
@@ -129,7 +192,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
             try {
                 if (!store.current || !isWithin(store.current.rootDir, candidate.fsPath)) { await store.open(path.dirname(candidate.fsPath)); }
                 propertyPanel.showFile(candidate);
-            } catch (error) { showError('打开属性面板失败', error); }
+            } catch (error) { showError(t('ext.openPropertiesFailed'), error); }
             return;
         }
         const node = nodeArg(candidate);
@@ -137,18 +200,18 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     });
 
     register('treeate.openScript', async (candidate?: TreeAteNode) => {
-        const node = nodeArg(candidate); if (node) { try { await scripts.open(node); } catch (error) { showError('打开脚本失败', error); } }
+        const node = nodeArg(candidate); if (node) { try { await scripts.open(node); } catch (error) { showError(t('ext.openScriptFailed'), error); } }
     });
     register('treeate.openSetup', async (candidate?: TreeAteNode) => {
-        const node = nodeArg(candidate); if (node) { try { await scripts.open(node, 'setup'); } catch (error) { showError('打开 setup 失败', error); } }
+        const node = nodeArg(candidate); if (node) { try { await scripts.open(node, 'setup'); } catch (error) { showError(t('ext.openSetupFailed'), error); } }
     });
     register('treeate.openTeardown', async (candidate?: TreeAteNode) => {
-        const node = nodeArg(candidate); if (node) { try { await scripts.open(node, 'teardown'); } catch (error) { showError('打开 teardown 失败', error); } }
+        const node = nodeArg(candidate); if (node) { try { await scripts.open(node, 'teardown'); } catch (error) { showError(t('ext.openTeardownFailed'), error); } }
     });
     register('treeate.generateFunctions', async (candidate?: TreeAteNode) => {
-        const node = nodeArg(candidate); if (node) { try { await scripts.generate(node); } catch (error) { showError('生成函数失败', error); } }
+        const node = nodeArg(candidate); if (node) { try { await scripts.generate(node); } catch (error) { showError(t('ext.generateFunctionsFailed'), error); } }
     });
-    register('treeate.runProject', async () => { try { await runner.run(); } catch (error) { showError('运行失败', error); } });
+    register('treeate.runProject', async () => { try { await runner.run(); } catch (error) { showError(t('ext.runFailed'), error); } });
 
     await tryOpenWorkspaceProject(store);
     void showPropertiesForEditor(vscode.window.activeTextEditor);
@@ -165,22 +228,23 @@ async function tryOpenWorkspaceProject(store: ProjectStore): Promise<void> {
 }
 
 async function createProject(contextUri?: vscode.Uri): Promise<string | undefined> {
-    const name = await vscode.window.showInputBox({ title: '新建 TreeATE 工程', prompt: '输入工程名称', placeHolder: 'TestProject', validateInput: validateName });
+    const name = await vscode.window.showInputBox({ title: t('ext.newProjectTitle'), prompt: t('ext.projectNamePrompt'), placeHolder: 'TestProject', validateInput: validateName });
     if (!name) { return undefined; }
-    const description = await vscode.window.showInputBox({ title: '工程描述', value: name });
+    const description = await vscode.window.showInputBox({ title: t('ext.projectDescriptionTitle'), value: name });
     if (description === undefined) { return undefined; }
     let parent: string | undefined;
     if (contextUri) {
         const stat = await fs.stat(contextUri.fsPath);
         parent = stat.isDirectory() ? contextUri.fsPath : path.dirname(contextUri.fsPath);
     } else {
-        const chosen = await vscode.window.showOpenDialog({ canSelectFiles: false, canSelectFolders: true, canSelectMany: false, title: '选择工程保存位置', openLabel: '选择文件夹' });
+        const chosen = await vscode.window.showOpenDialog({ canSelectFiles: false, canSelectFolders: true, canSelectMany: false, title: t('ext.selectProjectLocation'), openLabel: t('ext.selectFolderLabel') });
         parent = chosen?.[0]?.fsPath;
     }
     if (!parent) { return undefined; }
     const root = path.join(parent, name);
-    try { await fs.access(root); throw new Error(`目标目录已存在：${root}`); } catch (error) {
-        if (error instanceof Error && error.message.startsWith('目标目录已存在')) { throw error; }
+    const targetExistsPrefix = t('ext.targetExistsPrefix');
+    try { await fs.access(root); throw new Error(t('ext.targetExists', root)); } catch (error) {
+        if (error instanceof Error && error.message.startsWith(targetExistsPrefix)) { throw error; }
     }
     await fs.mkdir(path.join(root, 'libs'), { recursive: true });
     await fs.mkdir(path.join(root, 'images'), { recursive: true });
@@ -197,12 +261,12 @@ function buildTp(name: string, description: string): JsonObject {
         Public: {
             Models: [],
             Parameter: [
-                { Desc: '测试套启动返回值', Name: 'g_rstSetupSuite', Value: '0' },
-                { Desc: '测试套退出返回值', Name: 'g_rstExitSuite', Value: '0' },
-                { Desc: '测试项返回值', Name: 'g_rstTest', Value: '0' }
+                { Desc: t('ext.setupReturnDesc'), Name: 'g_rstSetupSuite', Value: '0' },
+                { Desc: t('ext.exitReturnDesc'), Name: 'g_rstExitSuite', Value: '0' },
+                { Desc: t('ext.caseReturnDesc'), Name: 'g_rstTest', Value: '0' }
             ]
         },
-        TestSuite: [{ Desc: '默认测试套', Name: 'suite1', Parameter: {}, TestCase: [{ Desc: '默认测试项', Name: 'test1', Parameter: {} }] }],
+        TestSuite: [{ Desc: t('ext.defaultSuiteDesc'), Name: 'suite1', Parameter: {}, TestCase: [{ Desc: t('ext.defaultCaseDesc'), Name: 'test1', Parameter: {} }] }],
         // TreeATE V2.4 desktop uses the 2.1.0 TP JSON schema marker.
         Ver: '2.1.0'
     };
@@ -224,10 +288,10 @@ function scriptTemplate(name: string): string {
 async function importResources(store: ProjectStore, contextUri?: vscode.Uri): Promise<void> {
     let root = store.current?.rootDir;
     if (!root && contextUri) { root = contextUri.fsPath; }
-    if (!root) { throw new Error('请先打开 TreeATE 工程。'); }
+    if (!root) { throw new Error(t('ext.openProjectRequired')); }
     const selected = await vscode.window.showOpenDialog({
-        canSelectFiles: true, canSelectFolders: false, canSelectMany: true, title: '导入 TreeATE 资源',
-        filters: { 'TreeATE 资源': ['dll', 'py', 'js', 'png', 'jpg', 'jpeg', 'gif'] }
+        canSelectFiles: true, canSelectFolders: false, canSelectMany: true, title: t('ext.importResourceTitle'),
+        filters: { [t('ext.resourceFilter')]: ['dll', 'py', 'js', 'png', 'jpg', 'jpeg', 'gif'] }
     });
     if (!selected?.length) { return; }
     for (const source of selected) {
@@ -237,12 +301,13 @@ async function importResources(store: ProjectStore, contextUri?: vscode.Uri): Pr
         const target = path.join(targetDir, path.basename(source.fsPath));
         let exists = false; try { await fs.access(target); exists = true; } catch { /* available */ }
         if (exists) {
-            const answer = await vscode.window.showWarningMessage(`${path.basename(target)} 已存在，是否覆盖？`, { modal: true }, '覆盖');
-            if (answer !== '覆盖') { continue; }
+            const overwrite = t('ext.overwriteLabel');
+            const answer = await vscode.window.showWarningMessage(t('ext.overwriteConfirm', path.basename(target)), { modal: true }, overwrite);
+            if (answer !== overwrite) { continue; }
         }
         await fs.copyFile(source.fsPath, target);
     }
-    void vscode.window.showInformationMessage(`资源已导入 ${root}`);
+    void vscode.window.showInformationMessage(t('ext.resourcesImported', root));
 }
 
 async function addWorkspaceFolder(folder: string): Promise<void> {
@@ -250,12 +315,13 @@ async function addWorkspaceFolder(folder: string): Promise<void> {
     vscode.workspace.updateWorkspaceFolders(vscode.workspace.workspaceFolders?.length ?? 0, 0, { uri: vscode.Uri.file(folder), name: path.basename(folder) });
 }
 
-async function askNodeName(kind: string): Promise<string | undefined> {
-    return vscode.window.showInputBox({ title: `新增${kind}`, prompt: `输入${kind}名称`, placeHolder: kind === '测试项' ? 'login_ok' : 'login', validateInput: validateName });
+async function askNodeName(kind: 'suite' | 'case'): Promise<string | undefined> {
+    const label = kind === 'case' ? t('ext.case') : t('ext.suite');
+    return vscode.window.showInputBox({ title: t('ext.addNodeTitle', label), prompt: t('ext.addNodePrompt', label), placeHolder: kind === 'case' ? 'login_ok' : 'login', validateInput: validateName });
 }
 
 function validateName(value: string): string | undefined {
-    return NAME_PATTERN.test(value) ? undefined : '必须以字母开头，且只能包含字母、数字和下划线。';
+    return NAME_PATTERN.test(value) ? undefined : t('ext.namePattern');
 }
 
 function isWithin(root: string, candidate: string): boolean {
@@ -264,7 +330,7 @@ function isWithin(root: string, candidate: string): boolean {
 }
 
 function showError(prefix: string, error: unknown): void {
-    void vscode.window.showErrorMessage(`${prefix}：${error instanceof Error ? error.message : String(error)}`);
+    void vscode.window.showErrorMessage(t('ext.errorMessage', prefix, error instanceof Error ? error.message : String(error)));
 }
 
 export function deactivate(): void { /* subscriptions are disposed by VS Code */ }

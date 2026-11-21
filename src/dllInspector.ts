@@ -2,6 +2,7 @@ import { execFile } from 'child_process';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { t } from './i18n';
 
 const OUTPUT_MARKER = 'TREEATE_QT_META:';
 
@@ -31,13 +32,13 @@ export class DllInspector {
                 return { status: 'unsupported', reason: 'CreateDeviceInst export was not found' };
             }
         } catch (error) {
-            return { status: 'error', message: `无法读取 DLL：${error instanceof Error ? error.message : String(error)}` };
+            return { status: 'error', message: t('dllInspector.readFailed', error instanceof Error ? error.message : String(error)) };
         }
         const executable = await this.findExecutable();
         if (!executable) {
             return {
                 status: 'error',
-                message: '未找到 Qt DLL 探测器。请构建 native/treeate-qt-inspector，或配置 treeate.qtInspectorPath。'
+                message: t('dllInspector.inspectorMissing')
             };
         }
         try {
@@ -66,20 +67,20 @@ export class DllInspector {
 
 export function parseInspectorOutput(output: string): DllInspection {
     const marker = output.lastIndexOf(OUTPUT_MARKER);
-    if (marker < 0) { throw new Error('Qt DLL 探测器没有返回有效结果。'); }
+    if (marker < 0) { throw new Error(t('dllInspector.noResult')); }
     const text = output.slice(marker + OUTPUT_MARKER.length).trim().split(/\r?\n/, 1)[0];
     let value: unknown;
     try { value = JSON.parse(text); }
-    catch { throw new Error('Qt DLL 探测器返回了无效的 JSON。'); }
-    if (!isRecord(value) || typeof value.status !== 'string') { throw new Error('Qt DLL 探测器返回的数据格式不正确。'); }
+    catch { throw new Error(t('dllInspector.invalidJson')); }
+    if (!isRecord(value) || typeof value.status !== 'string') { throw new Error(t('dllInspector.invalidData')); }
     if (value.status === 'unsupported') {
         return { status: 'unsupported', reason: typeof value.reason === 'string' ? value.reason : undefined };
     }
     if (value.status === 'error') {
-        return { status: 'error', message: typeof value.message === 'string' ? value.message : 'DLL 探测失败。' };
+        return { status: 'error', message: typeof value.message === 'string' ? value.message : t('dllInspector.failed') };
     }
     if (value.status !== 'ok' || typeof value.className !== 'string' || !Array.isArray(value.methods)) {
-        throw new Error('Qt DLL 探测器返回的数据格式不正确。');
+        throw new Error(t('dllInspector.invalidData'));
     }
     const methods: DllMethod[] = value.methods.filter(isRecord).map(method => ({
         name: typeof method.name === 'string' ? method.name : '',
@@ -153,7 +154,7 @@ function runInspector(executable: string, dllPath: string): Promise<string> {
         }, (error, stdout, stderr) => {
             if (error) {
                 const detail = String(stderr || stdout || error.message).trim();
-                reject(new Error(`Qt DLL 探测器运行失败：${detail}`));
+                reject(new Error(t('dllInspector.runFailed', detail)));
                 return;
             }
             resolve(stdout);
