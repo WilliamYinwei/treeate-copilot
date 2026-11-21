@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { t } from './i18n';
 import { TreeAteNode } from './model';
 import { ProjectStore } from './projectStore';
 
@@ -23,7 +24,7 @@ export class ProjectTreeProvider implements vscode.TreeDataProvider<TreeAteNode>
         item.id = node.id;
         item.contextValue = `treeate.${node.kind}`;
         item.description = node.description;
-        item.tooltip = new vscode.MarkdownString(`**${node.name}**\n\n${node.description || '无描述'}`);
+        item.tooltip = new vscode.MarkdownString(`**${node.name}**\n\n${node.description || t('tree.noDescription')}`);
         item.iconPath = new vscode.ThemeIcon(node.kind === 'project' ? 'root-folder' : node.kind === 'suite' ? 'beaker' : 'symbol-method');
         return item;
     }

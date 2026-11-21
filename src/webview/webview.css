@@ -18,6 +18,11 @@ footer { position: sticky; bottom: 0; display: flex; justify-content: flex-end; 
 #status { margin-right: auto; color: var(--vscode-descriptionForeground); }
 .error { color: var(--vscode-errorForeground); }
 .toolbar { display: flex; gap: 6px; align-items: center; margin: 6px 0; }
+.toolbar input { flex: 1 1 auto; min-width: 0; width: auto; }
+.toolbar button { flex: 0 0 auto; white-space: nowrap; }
+th .column-head { display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+button.remove-column { padding: 0 4px; min-width: auto; line-height: 1; font-size: 14px; background: transparent; color: var(--vscode-descriptionForeground); }
+button.remove-column:hover { background: transparent; color: var(--vscode-errorForeground); }
 .table-wrap { overflow: auto; max-width: 100%; }
 table { border-collapse: collapse; width: 100%; min-width: max-content; }
 th, td { border: 1px solid var(--vscode-panel-border); padding: 4px 6px; text-align: left; }

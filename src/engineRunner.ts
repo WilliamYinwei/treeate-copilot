@@ -2,6 +2,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import { spawn } from 'child_process';
 import * as vscode from 'vscode';
+import { t } from './i18n';
 import { ProjectStore } from './projectStore';
 
 export class EngineRunner implements vscode.Disposable {
@@ -12,8 +13,8 @@ export class EngineRunner implements vscode.Disposable {
 
     async run(): Promise<void> {
         const project = this.store.current;
-        if (!project) { throw new Error('请先打开 TreeATE 工程。'); }
-        if (this.child && this.child.exitCode === null) { throw new Error('TestEngine 正在运行。'); }
+        if (!project) { throw new Error(t('engine.openProjectFirst')); }
+        if (this.child && this.child.exitCode === null) { throw new Error(t('engine.alreadyRunning')); }
         const config = vscode.workspace.getConfiguration('treeate');
         let executable = config.get<string>('testEnginePath', '').trim();
         if (!executable) {
@@ -30,8 +31,8 @@ export class EngineRunner implements vscode.Disposable {
         this.child = spawn(executable, args, { cwd: project.rootDir, windowsHide: true, shell: false });
         this.child.stdout?.on('data', data => this.output.append(data.toString()));
         this.child.stderr?.on('data', data => this.output.append(data.toString()));
-        this.child.on('error', error => this.output.appendLine(`\n启动失败：${error.message}`));
-        this.child.on('close', code => this.output.appendLine(`\nTestEngine 已退出，代码 ${code ?? 'unknown'}。`));
+        this.child.on('error', error => this.output.appendLine(`\n${t('engine.startFailed', error.message)}`));
+        this.child.on('close', code => this.output.appendLine(`\n${t('engine.exited', code ?? 'unknown')}`));
     }
 
     dispose(): void { this.child?.kill(); this.output.dispose(); }

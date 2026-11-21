@@ -1,5 +1,6 @@
 (() => {
     const vscode = acquireVsCodeApi();
+    const strings = (window.__treeateI18n && window.__treeateI18n.properties) || {};
     const app = document.getElementById('app');
     const title = document.getElementById('title');
     const pathLabel = document.getElementById('path');
@@ -11,13 +12,13 @@
     window.addEventListener('message', event => {
         const message = event.data;
         if (message.type === 'render') { state = message.data; render(); }
-        if (message.type === 'saved') { status.textContent = '已保存'; status.className = ''; }
+        if (message.type === 'saved') { status.textContent = strings.saved; status.className = ''; }
         if (message.type === 'error') { status.textContent = message.message; status.className = 'error'; }
     });
     save.onclick = () => {
         validate();
-        if (!valid) { status.textContent = '请修正标红的参数名或 JSON。'; status.className = 'error'; return; }
-        status.textContent = '正在保存…'; status.className = '';
+        if (!valid) { status.textContent = strings.invalid; status.className = 'error'; return; }
+        status.textContent = strings.saving; status.className = '';
         vscode.postMessage({ type: 'save', data: state });
     };
 
@@ -28,27 +29,27 @@
         pathLabel.textContent = state.path || '';
         renderFields(state.fields || {});
         if (state.kind === 'tpx') {
-            renderRecords('GUI 插件', state.plugins, ['Com', 'Name']);
-            renderRecords('并行任务配置', state.instances, ['Name', 'File'], ['Parameter']);
+            renderRecords(strings.guiPlugins, state.plugins, ['Com', 'Name']);
+            renderRecords(strings.parallelTasks, state.instances, ['Name', 'File'], ['Parameter']);
         }
         if (state.kind === 'tp') {
-            renderParameters('工程全局参数', state.globals, value => state.globals = value);
-            renderRecords('组件绑定', state.bindings, ['Com'], ['Name']);
-            renderParameters('公共参数', state.publicParameters, value => state.publicParameters = value,
+            renderParameters(strings.globalParameters, state.globals, value => state.globals = value);
+            renderRecords(strings.bindings, state.bindings, ['Com'], ['Name']);
+            renderParameters(strings.publicParameters, state.publicParameters, value => state.publicParameters = value,
                 state.publicParameterDescriptions, value => state.publicParameterDescriptions = value);
         }
         if (state.kind === 'suite') {
-            renderRecords('组件绑定', state.bindings, ['Com'], ['Name']);
-            renderParameters('测试套参数', state.parameters, value => state.parameters = value);
-            renderParameters('公共参数', state.publicParameters, value => state.publicParameters = value,
+            renderRecords(strings.bindings, state.bindings, ['Com'], ['Name']);
+            renderParameters(strings.suiteParameters, state.parameters, value => state.parameters = value);
+            renderParameters(strings.publicParameters, state.publicParameters, value => state.publicParameters = value,
                 state.publicParameterDescriptions, value => state.publicParameterDescriptions = value);
         }
-        if (state.kind === 'case') {renderParameters('测试项自定义参数', state.parameters, value => state.parameters = value);}
+        if (state.kind === 'case') {renderParameters(strings.caseParameters, state.parameters, value => state.parameters = value);}
         status.textContent = ''; status.className = '';
     }
 
     function renderFields(fields) {
-        const section = sectionNode('基本配置');
+        const section = sectionNode(strings.basicConfig);
         for (const [key, original] of Object.entries(fields)) {
             const row = document.createElement('label'); row.className = 'field';
             const label = document.createElement('span'); label.textContent = key;
@@ -72,18 +73,18 @@
         if (assignDescriptions) {assignDescriptions(descriptions);}
         const section = sectionNode(heading);
         if (showDescriptions) {
-            const hint = document.createElement('p'); hint.className = 'hint'; hint.textContent = '参数名 / 参数值 / 描述'; section.append(hint);
+            const hint = document.createElement('p'); hint.className = 'hint'; hint.textContent = strings.parameterHint; section.append(hint);
         }
         const list = document.createElement('div'); section.append(list);
         const draw = () => {
             list.replaceChildren();
             Object.entries(parameters).forEach(([name, value]) => {
                 const row = document.createElement('div'); row.className = 'field';
-                const nameInput = document.createElement('input'); nameInput.value = name; nameInput.placeholder = '参数名'; nameInput.dataset.paramName = '1';
+                const nameInput = document.createElement('input'); nameInput.value = name; nameInput.placeholder = strings.parameterName; nameInput.dataset.paramName = '1';
                 const valueWrap = document.createElement('div'); valueWrap.className = 'toolbar';
-                const valueInput = document.createElement('input'); valueInput.value = String(value ?? ''); valueInput.placeholder = '参数值';
-                const descriptionInput = document.createElement('input'); descriptionInput.value = String(descriptions[name] ?? ''); descriptionInput.placeholder = '描述';
-                const remove = document.createElement('button'); remove.className = 'icon'; remove.textContent = '×'; remove.title = '删除参数';
+                const valueInput = document.createElement('input'); valueInput.value = String(value ?? ''); valueInput.placeholder = strings.parameterValue;
+                const descriptionInput = document.createElement('input'); descriptionInput.value = String(descriptions[name] ?? ''); descriptionInput.placeholder = strings.description;
+                const remove = document.createElement('button'); remove.className = 'icon'; remove.textContent = '×'; remove.title = strings.deleteParameter;
                 nameInput.oninput = () => validateName(nameInput);
                 nameInput.onchange = () => {
                     const next = nameInput.value.trim(); if (!validateName(nameInput) || next === name) {return;}
@@ -100,7 +101,7 @@
             });
         };
         draw();
-        const add = document.createElement('button'); add.textContent = '新增参数';
+        const add = document.createElement('button'); add.textContent = strings.addParameter;
         add.onclick = () => {
             let index = 1; while (`param_${index}` in parameters) {index++;}
             const name = `param_${index}`; parameters[name] = '';
@@ -140,7 +141,7 @@
             });
             table.append(body); wrap.append(table);
         };
-        draw(); const add = document.createElement('button'); add.textContent = '新增行'; add.onclick = () => { records.push(Object.fromEntries(preferred.map(key => [key, key === 'Parameter' ? {} : '']))); draw(); };
+        draw(); const add = document.createElement('button'); add.textContent = strings.addRow; add.onclick = () => { records.push(Object.fromEntries(preferred.map(key => [key, key === 'Parameter' ? {} : '']))); draw(); };
         section.append(add); app.append(section);
     }
 
@@ -148,7 +149,7 @@
         const section = document.createElement('section'); section.className = 'section';
         const h = document.createElement('h3'); h.textContent = heading; section.append(h); return section;
     }
-    function kindLabel(kind) { return ({ tpx: '全局配置', tp: 'TP 配置', suite: '测试套', case: '测试项' })[kind] || kind; }
+    function kindLabel(kind) { return ({ tpx: strings.kindTpx, tp: strings.kindTp, suite: strings.kindSuite, case: strings.kindCase })[kind] || kind; }
     function validateName(input) { const ok = /^[A-Za-z0-9_]+$/.test(input.value.trim()); input.classList.toggle('invalid', !ok); return ok; }
     function validate() {
         valid = true;

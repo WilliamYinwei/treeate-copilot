@@ -1,6 +1,7 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { t } from './i18n';
 import { TreeAteNode } from './model';
 import { ProjectStore } from './projectStore';
 
@@ -37,6 +38,6 @@ export class ScriptService {
         const blocks = missing.map(name => `\ndef ${name}():\n    \"\"\"TreeATE ${node.kind}: ${node.name}\"\"\"\n    __ate.OutputError(\"${name}\")\n    # TODO: 在此实现测试逻辑\n    return 0\n`).join('');
         await fs.mkdir(path.dirname(scriptPath), { recursive: true });
         await fs.writeFile(scriptPath, `${content.trimEnd()}\n${blocks}`, 'utf8');
-        void vscode.window.showInformationMessage(`已在 ${path.basename(scriptPath)} 生成：${missing.join('、')}`);
+        void vscode.window.showInformationMessage(t('script.generated', path.basename(scriptPath), missing.join(t('script.listSeparator'))));
     }
 }
